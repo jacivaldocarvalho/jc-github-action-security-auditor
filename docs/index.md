@@ -5,6 +5,7 @@
 - [Project README](../README.md): installation, usage, configuration, and limits.
 - [Contributing](../CONTRIBUTING.md): development setup and contribution workflow.
 - [Changelog](../CHANGELOG.md): project changes and version status.
+- [Release guide](releasing.md): validation and future publication procedures.
 
 ## Architecture decisions
 
