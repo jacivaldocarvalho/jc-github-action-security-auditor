@@ -149,3 +149,56 @@ def test_findings_and_parse_errors_are_both_reported(tmp_path: Path) -> None:
     assert "ERROR" in result.stderr and "a.yml" in result.stderr
     assert "GHA001" in result.stdout and "b.yml" in result.stdout
     assert "Traceback" not in result.stderr
+
+
+def test_pinning_findings_and_order_with_parse_error(tmp_path: Path) -> None:
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "a.yml").write_text(
+        "on: pull_request_target\n"
+        "jobs:\n  build:\n    steps:\n"
+        "      - uses: actions/checkout@v4\n"
+        "      - uses: owner/action@main\n"
+        "  reusable:\n    uses: owner/repo/.github/workflows/run.yml@main\n",
+        encoding="utf-8",
+    )
+    (workflows / "b.yml").write_text("on: [", encoding="utf-8")
+    command = ["jc-gha-audit", "scan", str(tmp_path)]
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    repeated = subprocess.run(command, capture_output=True, text=True, check=False)
+    assert result.returncode == repeated.returncode == 1
+    assert result.stdout == repeated.stdout and result.stderr == repeated.stderr
+    lines = [line for line in result.stdout.splitlines() if line.startswith("GHA")]
+    assert [line.split()[0] for line in lines] == [
+        "GHA001",
+        "GHA005",
+        "GHA005",
+        "GHA006",
+    ]
+    assert "step 1" in lines[1] and "step 2" in lines[2]
+    assert all("MEDIUM" in line and "a.yml" in line for line in lines)
+    assert result.stdout.count("Recommendation:") == 4
+    assert "ERROR" in result.stderr and "b.yml" in result.stderr
+
+
+def test_pinned_and_local_references_are_clean(tmp_path: Path) -> None:
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    sha = "abcdef0123" * 4
+    (workflows / "ci.yml").write_text(
+        "on: push\njobs:\n  build:\n    steps:\n"
+        f"      - uses: actions/checkout@{sha}\n"
+        "      - uses: ./local-action\n"
+        f"  remote:\n    uses: owner/repo/.github/workflows/ci.yml@{sha}\n"
+        "  local:\n    uses: ./.github/workflows/local.yml\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        ["jc-gha-audit", "scan", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert result.stdout.strip() == "OK .github/workflows/ci.yml"
+    assert result.stderr == ""

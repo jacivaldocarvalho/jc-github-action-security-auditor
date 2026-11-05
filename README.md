@@ -38,11 +38,16 @@ The checks report:
 - `GHA002` (MEDIUM): `workflow_run` trigger.
 - `GHA003` (HIGH): explicit `permissions: write-all`.
 - `GHA004` (MEDIUM): explicit write permissions requiring review.
+- `GHA005` (MEDIUM): a remote step action not pinned to a full commit SHA.
+- `GHA006` (MEDIUM): a remote reusable workflow not pinned to a full commit SHA.
 
 These findings identify configurations to review, not confirmed vulnerabilities.
 The checks do not evaluate exploitability, effective permissions from repository
 settings or event context, or the full GitHub Actions schema. A scan without
 findings is not a guarantee of security.
+Pinning checks do not resolve references or verify the referenced commit online.
+Local actions and local reusable workflows are excluded; Docker image pinning is
+not checked.
 
 ## YAML parsing library
 

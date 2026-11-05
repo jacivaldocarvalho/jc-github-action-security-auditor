@@ -8,6 +8,10 @@ from pathlib import Path
 from jc_github_action_security_auditor.discovery import discover_workflows
 from jc_github_action_security_auditor.models import Finding
 from jc_github_action_security_auditor.parser import WorkflowParseError, parse_workflow
+from jc_github_action_security_auditor.rules.action_pinning import (
+    detect_unpinned_actions,
+    detect_unpinned_reusable_workflows,
+)
 from jc_github_action_security_auditor.rules.permissions import detect_token_permissions
 from jc_github_action_security_auditor.rules.triggers import detect_privileged_triggers
 
@@ -44,6 +48,8 @@ def main() -> int:
                     print(f"OK {workflow.relative_to(args.repository)}")
                     findings.extend(detect_privileged_triggers(data, workflow))
                     findings.extend(detect_token_permissions(data, workflow))
+                    findings.extend(detect_unpinned_actions(data, workflow))
+                    findings.extend(detect_unpinned_reusable_workflows(data, workflow))
             for finding in sorted(
                 findings, key=lambda item: (item.file_path, item.rule_id)
             ):
