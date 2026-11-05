@@ -21,6 +21,8 @@ jc-gha-audit --help
 jc-gha-audit --version
 jc-gha-audit scan .
 jc-gha-audit scan . --config audit.yml
+jc-gha-audit scan . --format json
+jc-gha-audit scan . --format markdown --config audit.yml
 ```
 
 The `scan` command discovers `.yml` and `.yaml` regular files directly inside the
@@ -32,6 +34,12 @@ found, it prints a message and exits successfully. Nested directories and
 symbolic-link workflow files are ignored; symbolic-link `.github` or
 `.github/workflows` directories are rejected. `OK` means parsing succeeded; it
 does not mean that a workflow is valid for GitHub Actions or secure.
+
+The default `text` format prints parsing status and findings. Use `--format json`
+for a structured summary, findings, and workflow errors, or `--format markdown`
+for a readable report with the same information. Reports go to standard output;
+configuration and discovery failures go to standard error. Findings and scanning
+errors produce exit status 1 in every format.
 
 The checks report:
 

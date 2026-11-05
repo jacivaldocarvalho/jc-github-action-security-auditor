@@ -1,5 +1,6 @@
 """Tests for the public command-line interface."""
 
+import json
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
@@ -306,3 +307,106 @@ def test_disabled_rule_functions_are_not_called(
         ),
     ):
         assert cli.main() == 0
+
+
+@pytest.mark.parametrize("report_format", ["json", "markdown"])
+def test_structured_reports_with_errors_and_config(
+    tmp_path: Path, report_format: str
+) -> None:
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "a.yml").write_text(
+        "on: [pull_request_target, workflow_run]\npermissions: write-all\n",
+        encoding="utf-8",
+    )
+    (workflows / "b.yml").write_text("on: [", encoding="utf-8")
+    config = tmp_path / "config.yml"
+    config.write_text("disabled_rules: [GHA002]\n", encoding="utf-8")
+    command = [
+        "jc-gha-audit",
+        "scan",
+        str(tmp_path),
+        "--format",
+        report_format,
+        "--config",
+        str(config),
+    ]
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    repeated = subprocess.run(command, capture_output=True, text=True, check=False)
+    assert result.returncode == 1 and result.stderr == ""
+    assert result.stdout == repeated.stdout and result.stderr == repeated.stderr
+    if report_format == "json":
+        data = json.loads(result.stdout)
+        assert data["summary"] == {"workflows_analyzed": 1, "findings": 2, "errors": 1}
+        assert [finding["rule_id"] for finding in data["findings"]] == [
+            "GHA001",
+            "GHA003",
+        ]
+        assert data["findings"][0]["file_path"] == ".github/workflows/a.yml"
+        assert data["errors"][0]["file_path"] == ".github/workflows/b.yml"
+    else:
+        assert "Workflows analyzed: 1" in result.stdout
+        assert "Findings: 2" in result.stdout and "Errors: 1" in result.stdout
+        assert result.stdout.index("GHA001") < result.stdout.index("GHA003")
+        assert "GHA002" not in result.stdout and "## Workflow errors" in result.stdout
+
+
+@pytest.mark.parametrize("report_format", ["json", "markdown"])
+@pytest.mark.parametrize("has_workflow", [True, False])
+def test_structured_empty_or_clean_scan(
+    tmp_path: Path, report_format: str, has_workflow: bool
+) -> None:
+    if has_workflow:
+        workflows = tmp_path / ".github" / "workflows"
+        workflows.mkdir(parents=True)
+        (workflows / "ci.yml").write_text("on: push\n", encoding="utf-8")
+    result = subprocess.run(
+        ["jc-gha-audit", "scan", str(tmp_path), "--format", report_format],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0 and result.stderr == ""
+    if report_format == "json":
+        data = json.loads(result.stdout)
+        assert data["summary"] == {
+            "workflows_analyzed": int(has_workflow),
+            "findings": 0,
+            "errors": 0,
+        }
+        assert data["findings"] == data["errors"] == []
+    else:
+        assert f"Workflows analyzed: {int(has_workflow)}" in result.stdout
+        assert (
+            "No findings." in result.stdout and "No workflow errors." in result.stdout
+        )
+
+
+def test_invalid_format_and_structured_operational_error(tmp_path: Path) -> None:
+    invalid = subprocess.run(
+        ["jc-gha-audit", "scan", str(tmp_path), "--format", "xml"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert invalid.returncode != 0 and "invalid choice" in invalid.stderr
+    error = subprocess.run(
+        [
+            "jc-gha-audit",
+            "scan",
+            str(tmp_path),
+            "--format",
+            "json",
+            "--config",
+            str(tmp_path / "missing"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert error.returncode == 1 and error.stdout == ""
+    assert "Error loading configuration" in error.stderr
+    help_result = subprocess.run(
+        ["jc-gha-audit", "scan", "--help"], capture_output=True, text=True, check=False
+    )
+    assert "--format" in help_result.stdout

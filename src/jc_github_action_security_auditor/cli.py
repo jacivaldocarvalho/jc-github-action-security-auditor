@@ -2,6 +2,7 @@
 
 import argparse
 import sys
+from dataclasses import replace
 from importlib.metadata import version
 from pathlib import Path
 
@@ -13,6 +14,12 @@ from jc_github_action_security_auditor.config import (
 from jc_github_action_security_auditor.discovery import discover_workflows
 from jc_github_action_security_auditor.models import Finding
 from jc_github_action_security_auditor.parser import WorkflowParseError, parse_workflow
+from jc_github_action_security_auditor.reporting import (
+    ScanResult,
+    WorkflowError,
+    to_json,
+    to_markdown,
+)
 from jc_github_action_security_auditor.rules.action_pinning import (
     detect_unpinned_actions,
     detect_unpinned_reusable_workflows,
@@ -35,6 +42,12 @@ def main() -> int:
     scan_parser.add_argument(
         "--config", type=Path, help="Path to a YAML configuration file."
     )
+    scan_parser.add_argument(
+        "--format",
+        choices=("text", "json", "markdown"),
+        default="text",
+        help="Report format (default: text).",
+    )
     args = parser.parse_args()
 
     if args.command == "scan":
@@ -51,16 +64,22 @@ def main() -> int:
             print(f"Error discovering workflows: {error}", file=sys.stderr)
             return 1
         if workflows:
-            failed = False
+            errors: list[WorkflowError] = []
+            analyzed = 0
             findings: list[Finding] = []
             for workflow in workflows:
                 try:
                     data = parse_workflow(workflow)
                 except WorkflowParseError as error:
-                    print(f"ERROR {error}", file=sys.stderr)
-                    failed = True
+                    errors.append(
+                        WorkflowError(workflow.relative_to(args.repository), str(error))
+                    )
+                    if args.format == "text":
+                        print(f"ERROR {error}", file=sys.stderr)
                 else:
-                    print(f"OK {workflow.relative_to(args.repository)}")
+                    analyzed += 1
+                    if args.format == "text":
+                        print(f"OK {workflow.relative_to(args.repository)}")
                     if config.enabled_rules & {"GHA001", "GHA002"}:
                         findings.extend(
                             detect_privileged_triggers(
@@ -79,18 +98,34 @@ def main() -> int:
                         findings.extend(
                             detect_unpinned_reusable_workflows(data, workflow)
                         )
-            for finding in sorted(
-                findings, key=lambda item: (item.file_path, item.rule_id)
-            ):
-                path = finding.file_path.relative_to(args.repository)
+            ordered = sorted(findings, key=lambda item: (item.file_path, item.rule_id))
+            result = ScanResult(
+                tuple(
+                    replace(
+                        finding,
+                        file_path=finding.file_path.relative_to(args.repository),
+                    )
+                    for finding in ordered
+                ),
+                tuple(errors),
+                analyzed,
+            )
+        else:
+            result = ScanResult()
+            if args.format == "text":
+                print("No workflow files found.")
+        if args.format == "json":
+            print(to_json(result))
+        elif args.format == "markdown":
+            print(to_markdown(result), end="")
+        else:
+            for finding in result.findings:
                 print(
-                    f"{finding.rule_id} {finding.severity.value} {path}: {finding.message}"
+                    f"{finding.rule_id} {finding.severity.value} {finding.file_path}: {finding.message}"
                 )
                 if finding.recommendation:
                     print(f"  Recommendation: {finding.recommendation}")
-            return int(failed or bool(findings))
-        else:
-            print("No workflow files found.")
+        return int(result.has_issues)
     return 0
 
 
