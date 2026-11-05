@@ -101,3 +101,51 @@ def test_scan_multiple_workflows(
             assert "expected" in result.stderr
         else:
             assert f".github/workflows/{index}.yml" in result.stdout
+
+
+def test_findings_are_sorted_and_include_details(tmp_path: Path) -> None:
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "z.yml").write_text("on: workflow_run\n", encoding="utf-8")
+    (workflows / "a.yml").write_text(
+        "on: [workflow_run, pull_request_target]\n"
+        "permissions: write-all\n"
+        "jobs:\n  build:\n    permissions:\n      contents: write\n",
+        encoding="utf-8",
+    )
+    command = ["jc-gha-audit", "scan", str(tmp_path)]
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    repeated = subprocess.run(command, capture_output=True, text=True, check=False)
+    assert result.returncode == 1
+    assert result.stdout == repeated.stdout
+    assert result.stderr == repeated.stderr == ""
+    lines = [line for line in result.stdout.splitlines() if line.startswith("GHA")]
+    assert [line.split()[0] for line in lines] == [
+        "GHA001",
+        "GHA002",
+        "GHA003",
+        "GHA004",
+        "GHA002",
+    ]
+    assert all(".github/workflows/a.yml" in line for line in lines[:4])
+    assert ".github/workflows/z.yml" in lines[4]
+    assert "HIGH" in lines[2]
+    assert all("MEDIUM" in lines[index] for index in (0, 1, 3, 4))
+    assert result.stdout.count("Recommendation:") == 5
+
+
+def test_findings_and_parse_errors_are_both_reported(tmp_path: Path) -> None:
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "a.yml").write_text("on: [", encoding="utf-8")
+    (workflows / "b.yml").write_text("on: pull_request_target", encoding="utf-8")
+    result = subprocess.run(
+        ["jc-gha-audit", "scan", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 1
+    assert "ERROR" in result.stderr and "a.yml" in result.stderr
+    assert "GHA001" in result.stdout and "b.yml" in result.stdout
+    assert "Traceback" not in result.stderr

@@ -2,8 +2,8 @@
 
 This project aims to provide an offline CLI for identifying potentially insecure
 GitHub Actions workflow configurations, without GitHub credentials or API access.
-The CLI currently discovers and parses local workflow files. Security checks are
-not implemented.
+The CLI discovers and parses local workflow files and runs a small set of
+review-oriented security checks.
 
 ## Requirements and installation
 
@@ -25,12 +25,24 @@ jc-gha-audit scan .
 The `scan` command discovers `.yml` and `.yaml` regular files directly inside the
 repository's `.github/workflows/` directory in sorted order and reports `OK` or
 `ERROR` for each file's parsing result. It continues after parsing errors and
-exits with status 1 if any file fails or discovery fails. If no workflows are
+exits with status 1 if any finding is reported, parsing fails, or discovery
+fails. It exits with status 0 if all files parse without findings. If no workflows are
 found, it prints a message and exits successfully. Nested directories and
 symbolic-link workflow files are ignored; symbolic-link `.github` or
-`.github/workflows` directories are rejected. Parsing success does not mean that
-a workflow is valid for GitHub Actions or secure: schema validation and security
-analysis are not implemented.
+`.github/workflows` directories are rejected. `OK` means parsing succeeded; it
+does not mean that a workflow is valid for GitHub Actions or secure.
+
+The checks report:
+
+- `GHA001` (MEDIUM): `pull_request_target` trigger.
+- `GHA002` (MEDIUM): `workflow_run` trigger.
+- `GHA003` (HIGH): explicit `permissions: write-all`.
+- `GHA004` (MEDIUM): explicit write permissions requiring review.
+
+These findings identify configurations to review, not confirmed vulnerabilities.
+The checks do not evaluate exploitability, effective permissions from repository
+settings or event context, or the full GitHub Actions schema. A scan without
+findings is not a guarantee of security.
 
 ## YAML parsing library
 
