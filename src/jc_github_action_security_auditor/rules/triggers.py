@@ -6,7 +6,10 @@ from jc_github_action_security_auditor.models import Finding, Severity
 
 
 def detect_privileged_triggers(
-    workflow: dict[str, object], path: Path
+    workflow: dict[str, object],
+    path: Path,
+    *,
+    enabled_rules: frozenset[str] | None = None,
 ) -> list[Finding]:
     """Return review findings for privileged events in a parsed workflow."""
     triggers = workflow.get("on")
@@ -18,7 +21,9 @@ def detect_privileged_triggers(
         return []
 
     findings = []
-    if "pull_request_target" in events:
+    if (
+        enabled_rules is None or "GHA001" in enabled_rules
+    ) and "pull_request_target" in events:
         findings.append(
             Finding(
                 rule_id="GHA001",
@@ -31,7 +36,9 @@ def detect_privileged_triggers(
                 ),
             )
         )
-    if "workflow_run" in events:
+    if (
+        enabled_rules is None or "GHA002" in enabled_rules
+    ) and "workflow_run" in events:
         findings.append(
             Finding(
                 rule_id="GHA002",

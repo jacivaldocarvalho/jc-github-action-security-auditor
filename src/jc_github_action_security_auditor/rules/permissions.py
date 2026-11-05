@@ -5,8 +5,10 @@ from pathlib import Path
 from jc_github_action_security_auditor.models import Finding, Severity
 
 
-def _check_permissions(value: object, scope: str, path: Path) -> list[Finding]:
-    if value == "write-all":
+def _check_permissions(
+    value: object, scope: str, path: Path, enabled_rules: frozenset[str] | None
+) -> list[Finding]:
+    if (enabled_rules is None or "GHA003" in enabled_rules) and value == "write-all":
         return [
             Finding(
                 rule_id="GHA003",
@@ -19,7 +21,7 @@ def _check_permissions(value: object, scope: str, path: Path) -> list[Finding]:
                 ),
             )
         ]
-    if isinstance(value, dict):
+    if (enabled_rules is None or "GHA004" in enabled_rules) and isinstance(value, dict):
         write_scopes = sorted(
             key
             for key, permission in value.items()
@@ -41,14 +43,23 @@ def _check_permissions(value: object, scope: str, path: Path) -> list[Finding]:
     return []
 
 
-def detect_token_permissions(workflow: dict[str, object], path: Path) -> list[Finding]:
+def detect_token_permissions(
+    workflow: dict[str, object],
+    path: Path,
+    *,
+    enabled_rules: frozenset[str] | None = None,
+) -> list[Finding]:
     """Return findings for explicit workflow and job token permissions."""
-    findings = _check_permissions(workflow.get("permissions"), "Workflow", path)
+    findings = _check_permissions(
+        workflow.get("permissions"), "Workflow", path, enabled_rules
+    )
     jobs = workflow.get("jobs")
     if isinstance(jobs, dict):
         for job_id, job in jobs.items():
             if isinstance(job_id, str) and isinstance(job, dict):
                 findings.extend(
-                    _check_permissions(job.get("permissions"), f"Job '{job_id}'", path)
+                    _check_permissions(
+                        job.get("permissions"), f"Job '{job_id}'", path, enabled_rules
+                    )
                 )
     return findings

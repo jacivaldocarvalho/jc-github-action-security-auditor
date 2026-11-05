@@ -20,6 +20,7 @@ python -m pip install -e ".[dev]"
 jc-gha-audit --help
 jc-gha-audit --version
 jc-gha-audit scan .
+jc-gha-audit scan . --config audit.yml
 ```
 
 The `scan` command discovers `.yml` and `.yaml` regular files directly inside the
@@ -48,6 +49,23 @@ findings is not a guarantee of security.
 Pinning checks do not resolve references or verify the referenced commit online.
 Local actions and local reusable workflows are excluded; Docker image pinning is
 not checked.
+
+## Rule configuration
+
+All rules are enabled by default. Pass `--config PATH` to select a local UTF-8
+YAML file that disables specific rules, for example:
+
+```yaml
+disabled_rules:
+  - GHA001
+  - GHA005
+```
+
+Only `disabled_rules` is supported; it must contain unique, known rule IDs.
+An empty file or mapping leaves all rules enabled. Invalid or unreadable
+configuration produces an error and exit status 1. No configuration file is
+discovered automatically. The file is limited to 1 MiB and YAML aliases,
+merge keys, and explicit tags are rejected.
 
 ## YAML parsing library
 
