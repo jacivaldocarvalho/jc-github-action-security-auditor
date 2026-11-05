@@ -1,5 +1,10 @@
 # GitHub Action Security Auditor
 
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
+[![CI](https://github.com/jacivaldocarvalho/jc-github-action-security-auditor/actions/workflows/ci.yml/badge.svg)](https://github.com/jacivaldocarvalho/jc-github-action-security-auditor/actions/workflows/ci.yml)
+[![Code style: Ruff](https://img.shields.io/badge/code%20style-Ruff-261230)](https://docs.astral.sh/ruff/)
+[![License](https://img.shields.io/github/license/jacivaldocarvalho/jc-github-action-security-auditor)](LICENSE)
+
 This project aims to provide an offline CLI for identifying potentially insecure
 GitHub Actions workflow configurations, without GitHub credentials or API access.
 The CLI discovers and parses local workflow files and runs a small set of
@@ -111,3 +116,15 @@ and normal process termination to save measurements.
 See the [documentation index](docs/index.md) for architecture decisions and
 diagrams, the [contribution guide](CONTRIBUTING.md) for development practices,
 and the [changelog](CHANGELOG.md) for project history.
+
+## License
+
+Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
+
+## Author
+
+**Jacivaldo Carvalho**
+
+Telecommunications Engineer | DevOps Engineer | SRE | Networking
+
+[GitHub](https://github.com/jacivaldocarvalho) | [LinkedIn](https://www.linkedin.com/in/jacivaldocarvalho) | [Website](https://www.jacivaldocarvalho.com/)
