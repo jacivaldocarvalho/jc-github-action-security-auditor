@@ -13,3 +13,18 @@ __pycache__/
 .coverage
 .coverage.*
 htmlcov/
+
+.venv
+venv/
+.tox/
+.nox/
+
+# Python packaging artifacts
+build/
+dist/
+*.egg-info/
+
+# Local environment configuration
+.env
+.env.*
+!.env.example
