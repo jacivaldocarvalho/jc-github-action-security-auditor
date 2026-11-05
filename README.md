@@ -105,3 +105,9 @@ python -m pytest --cov=jc_github_action_security_auditor --cov-report=term-missi
 Coverage measures executed statements, not whether every branch or security
 scenario was tested. Subprocess coverage requires the development dependencies
 and normal process termination to save measurements.
+
+## Documentation
+
+See the [documentation index](docs/index.md) for architecture decisions and
+diagrams, the [contribution guide](CONTRIBUTING.md) for development practices,
+and the [changelog](CHANGELOG.md) for project history.
