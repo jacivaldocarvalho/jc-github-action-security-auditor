@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "jc-github-action-security-auditor"
 version = "0.1.0"
 description = "An offline GitHub Actions workflow security auditor"
+license = "MIT"
 authors = [{ name = "Jacivaldo Carvalho", email = "jacivaldocarvalho@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.11"
