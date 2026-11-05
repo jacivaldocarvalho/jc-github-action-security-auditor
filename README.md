@@ -95,3 +95,13 @@ sandbox for files controlled by a concurrently changing filesystem.
 ```bash
 python -m pytest -q
 ```
+
+To measure coverage, including CLI subprocesses, run:
+
+```bash
+python -m pytest --cov=jc_github_action_security_auditor --cov-report=term-missing
+```
+
+Coverage measures executed statements, not whether every branch or security
+scenario was tested. Subprocess coverage requires the development dependencies
+and normal process termination to save measurements.

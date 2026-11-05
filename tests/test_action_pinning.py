@@ -148,3 +148,25 @@ def test_reusable_workflow_and_action_findings_are_separate() -> None:
     assert [finding.rule_id for finding in reusable] == ["GHA006", "GHA006"]
     assert "first" in reusable[0].message and "second" in reusable[1].message
     assert [finding.rule_id for finding in actions] == ["GHA005"]
+
+
+@pytest.mark.parametrize(
+    "uses",
+    [
+        "owner/repo/.github/workflows/build.yml",
+        "owner/repo/.github/workflows/build.yml@",
+        "@main",
+        "/repo/.github/workflows/build.yml@main",
+        "owner//.github/workflows/build.yml@main",
+        "owner/repo/.github/workflows/@main",
+        "owner/repo/.github/workflows/nested/build.yml@main",
+        "owner/repo/.github/other/build.yml@main",
+        "owner/repo/.github/workflows/build.txt@main",
+        [],
+        {},
+        True,
+    ],
+)
+def test_malformed_reusable_reference_has_no_finding(uses: object) -> None:
+    workflow = {"jobs": {"reusable": {"uses": uses}}}
+    assert detect_unpinned_reusable_workflows(workflow, Path("ci.yml")) == []

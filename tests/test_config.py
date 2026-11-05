@@ -1,5 +1,6 @@
 """Tests for immutable rule configuration."""
 
+import subprocess
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 from unittest.mock import patch
@@ -123,3 +124,38 @@ def test_oversized_and_invalid_utf8_config(tmp_path: Path) -> None:
     path.write_bytes(b"\xff")
     with pytest.raises(ConfigError, match="UTF-8"):
         load_config(path)
+
+
+def test_excessive_nesting_is_controlled_in_library_and_cli(tmp_path: Path) -> None:
+    path = tmp_path / "config.yml"
+    path.write_text("disabled_rules: " + "[" * 2000 + "]" * 2000, encoding="utf-8")
+    with pytest.raises(ConfigError, match="parser limits") as error:
+        load_config(path)
+    assert str(path) in str(error.value)
+    result = subprocess.run(
+        ["jc-gha-audit", "scan", str(tmp_path), "--config", str(path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 1
+    assert "parser limits" in result.stderr and "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize(
+    "failure", [ValueError("bad value"), OverflowError("too large")]
+)
+def test_parser_limit_failures_are_controlled(
+    tmp_path: Path, failure: Exception
+) -> None:
+    path = tmp_path / "config.yml"
+    path.write_text("{}", encoding="utf-8")
+    with (
+        patch(
+            "jc_github_action_security_auditor.config._ConfigLoader.get_single_node",
+            side_effect=failure,
+        ),
+        pytest.raises(ConfigError, match="parser limits") as error,
+    ):
+        load_config(path)
+    assert str(path) in str(error.value)

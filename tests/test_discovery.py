@@ -67,3 +67,14 @@ def test_inaccessible_directory_is_not_treated_as_empty(tmp_path: Path) -> None:
         pytest.raises(PermissionError),
     ):
         discover_workflows(tmp_path)
+
+
+@pytest.mark.parametrize("component", [".github", "workflows"])
+def test_workflow_directory_component_is_file(tmp_path: Path, component: str) -> None:
+    path = tmp_path / ".github"
+    if component == "workflows":
+        path.mkdir()
+        path = path / "workflows"
+    path.touch()
+    with pytest.raises(NotADirectoryError, match="Workflow path is not a directory"):
+        discover_workflows(tmp_path)
