@@ -5,10 +5,29 @@
 [![Code style: Ruff](https://img.shields.io/badge/code%20style-Ruff-261230)](https://docs.astral.sh/ruff/)
 [![License](https://img.shields.io/github/license/jacivaldocarvalho/jc-github-action-security-auditor)](LICENSE)
 
-This project aims to provide an offline CLI for identifying potentially insecure
+## Overview
+
+This project provides an offline CLI for identifying potentially insecure
 GitHub Actions workflow configurations, without GitHub credentials or API access.
 The CLI discovers and parses local workflow files and runs a small set of
 review-oriented security checks.
+
+## The Problem
+
+GitHub Actions workflows can have excessive `GITHUB_TOKEN` permissions or use
+privileged triggers that make untrusted code or inputs especially risky. Third-party
+actions referenced by mutable tags and remote reusable workflows without immutable
+references can change after review, with supply-chain implications for the code that
+runs in CI. Reviewing workflow YAML before execution helps identify configurations
+that warrant closer scrutiny before they can affect a repository or its automation.
+
+## Why This Project?
+
+The auditor is a lightweight Python CLI for offline static analysis of local
+workflow files. It requires no GitHub credentials or API access and produces
+deterministic, review-oriented findings. Rules can be disabled through a local
+configuration file, and text, JSON, and Markdown reports support both local
+development and CI automation.
 
 ## Requirements and installation
 
@@ -46,15 +65,86 @@ for a readable report with the same information. Reports go to standard output;
 configuration and discovery failures go to standard error. Findings and scanning
 errors produce exit status 1 in every format.
 
-The checks report:
+## Example: Detecting Insecure Workflows
 
-- `GHA001` (MEDIUM): `pull_request_target` trigger.
-- `GHA002` (MEDIUM): `workflow_run` trigger.
-- `GHA003` (HIGH): explicit `permissions: write-all`.
-- `GHA004` (MEDIUM): explicit write permissions requiring review.
-- `GHA005` (MEDIUM): a remote step action not pinned to a full commit SHA.
-- `GHA006` (MEDIUM): a remote reusable workflow not pinned to a full commit SHA.
+![Terminal demonstration of the auditor detecting three workflow security findings](docs/assets/security-demo.gif)
 
+This workflow is **intentionally insecure and for demonstration only**. Create it
+in a temporary directory, then scan that directory:
+
+```bash
+example_repo=$(mktemp -d)
+mkdir -p "$example_repo/.github/workflows"
+cat > "$example_repo/.github/workflows/insecure.yml" <<'YAML'
+name: Insecure example
+on: pull_request_target
+permissions: write-all
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+YAML
+jc-gha-audit scan "$example_repo" --format json
+```
+
+The resulting JSON is:
+
+```json
+{
+  "summary": {
+    "workflows_analyzed": 1,
+    "findings": 3,
+    "errors": 0
+  },
+  "findings": [
+    {
+      "rule_id": "GHA001",
+      "severity": "MEDIUM",
+      "message": "The pull_request_target trigger warrants a security review.",
+      "file_path": ".github/workflows/insecure.yml",
+      "line": null,
+      "recommendation": "Review token permissions and secrets; avoid executing untrusted pull request code in a privileged context."
+    },
+    {
+      "rule_id": "GHA003",
+      "severity": "HIGH",
+      "message": "Workflow declares write-all token permissions.",
+      "file_path": ".github/workflows/insecure.yml",
+      "line": null,
+      "recommendation": "Replace write-all with only the permissions required by this workflow or job, following least privilege."
+    },
+    {
+      "rule_id": "GHA005",
+      "severity": "MEDIUM",
+      "message": "Job 'build', step 1 uses an unpinned remote action: actions/checkout@v4.",
+      "file_path": ".github/workflows/insecure.yml",
+      "line": null,
+      "recommendation": "Pin the action to a reviewed full 40-character commit SHA."
+    }
+  ],
+  "errors": []
+}
+```
+
+GHA001 flags the `pull_request_target` trigger for review. GHA003 flags the
+explicit `write-all` token permissions. GHA005 flags `actions/checkout@v4`
+because its ref is not a full commit SHA. The CLI exits with status 1 because
+it reported findings. These are configurations requiring review, not confirmed
+exploitable vulnerabilities.
+
+## Security Checks
+
+| Rule ID | Severity | Detection | Security rationale |
+| --- | --- | --- | --- |
+| GHA001 | MEDIUM | `pull_request_target` in `on` (string, list, or mapping). | Privileged pull request contexts require care with untrusted code, tokens, and secrets. |
+| GHA002 | MEDIUM | `workflow_run` in `on` (string, list, or mapping). | Artifacts and other inputs from the triggering workflow require validation in a privileged context. |
+| GHA003 | HIGH | Explicit `permissions: write-all` at workflow or job level. | Broad write access can exceed the permissions a workflow needs. |
+| GHA004 | MEDIUM | Explicit permission mapping with one or more `write` values at workflow or job level. | Write access should be reviewed against the permissions actually required. |
+| GHA005 | MEDIUM | Remote step action reference with a nonempty ref that is not a full 40-character hexadecimal commit SHA. | Mutable or abbreviated references can change or be ambiguous after review. |
+| GHA006 | MEDIUM | Remote job reusable workflow reference in `owner/repo/.github/workflows/file.yml` or `.yaml` form with a nonempty ref that is not a full 40-character hexadecimal commit SHA. | Mutable or abbreviated references can change or be ambiguous after review. |
+
+The pinning checks skip malformed references, including missing or empty refs.
 These findings identify configurations to review, not confirmed vulnerabilities.
 The checks do not evaluate exploitability, effective permissions from repository
 settings or event context, or the full GitHub Actions schema. A scan without
@@ -110,6 +200,22 @@ python -m pytest --cov=jc_github_action_security_auditor --cov-report=term-missi
 Coverage measures executed statements, not whether every branch or security
 scenario was tested. Subprocess coverage requires the development dependencies
 and normal process termination to save measurements.
+
+## Roadmap (Planned)
+
+The following are proposed future improvements and are not implemented:
+
+**Short-term priorities**
+
+- SARIF output for GitHub Code Scanning and GitHub Actions annotations.
+- Expression injection detection and credential persistence checks.
+- Reduced false positives.
+
+**Longer-term priorities**
+
+- Self-hosted runner security checks and context-aware permission analysis.
+- A reusable GitHub Action for this auditor.
+- Benchmarking against established tools and real repositories.
 
 ## Documentation
 
