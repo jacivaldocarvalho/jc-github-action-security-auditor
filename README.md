@@ -1,5 +1,6 @@
 # GitHub Action Security Auditor
 
+[![PyPI](https://img.shields.io/pypi/v/jc-github-action-security-auditor)](https://pypi.org/project/jc-github-action-security-auditor/)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![CI](https://github.com/jacivaldocarvalho/jc-github-action-security-auditor/actions/workflows/ci.yml/badge.svg)](https://github.com/jacivaldocarvalho/jc-github-action-security-auditor/actions/workflows/ci.yml)
 [![Code style: Ruff](https://img.shields.io/badge/code%20style-Ruff-261230)](https://docs.astral.sh/ruff/)
@@ -31,8 +32,19 @@ development and CI automation.
 
 ## Requirements and installation
 
-Python 3.11 or later is required. For local development, install the package and
-development tools from the repository root:
+Python 3.11 or later is required. Install the published package from PyPI:
+
+```bash
+python -m pip install jc-github-action-security-auditor
+```
+
+To install from a source checkout, run from the repository root:
+
+```bash
+python -m pip install .
+```
+
+For editable local development with the development tools, run instead:
 
 ```bash
 python -m pip install -e ".[dev]"
@@ -221,7 +233,7 @@ The following are proposed future improvements and are not implemented:
 
 See the [documentation index](https://github.com/jacivaldocarvalho/jc-github-action-security-auditor/blob/2f984f95cb34c657cfd3dfd3ecc41174a2cbc7a4/docs/index.md) for architecture decisions and
 diagrams, the [contribution guide](https://github.com/jacivaldocarvalho/jc-github-action-security-auditor/blob/2f984f95cb34c657cfd3dfd3ecc41174a2cbc7a4/CONTRIBUTING.md) for development practices,
-and the [changelog](https://github.com/jacivaldocarvalho/jc-github-action-security-auditor/blob/2f984f95cb34c657cfd3dfd3ecc41174a2cbc7a4/CHANGELOG.md) for project history.
+and the [changelog](https://github.com/jacivaldocarvalho/jc-github-action-security-auditor/blob/main/CHANGELOG.md) for project history.
 
 ## License
 

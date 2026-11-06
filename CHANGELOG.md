@@ -9,10 +9,7 @@ format. Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Architecture decision records, diagrams, and contribution guidance.
 
-## [0.1.0] — Unreleased
-
-This is the version declared in project metadata. This entry does not assert that
-the version has been tagged or published.
+## [0.1.0] — 2026-11-06
 
 ### Added
 
