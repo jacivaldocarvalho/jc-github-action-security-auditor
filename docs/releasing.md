@@ -1,23 +1,49 @@
 # Release Preparation and Publication
 
-This guide describes a future release process and a prepared publishing workflow.
-It does not indicate that a release, tag, or Trusted Publisher already exists. Obtain
-explicit, operation-specific approval before publishing to TestPyPI or PyPI,
-creating a tag or release, or changing publishing infrastructure or credentials.
+Version 0.1.0 was published to PyPI using GitHub Actions Trusted Publishing.
+This guide describes subsequent releases and how to restore the publishing setup.
+Obtain explicit, operation-specific approval before publishing, creating or
+pushing a tag, creating a GitHub Release, or changing publishing infrastructure.
 
-## Prerequisites
+## One-time publishing setup
 
-Review the intended commit and ensure the working tree and release inputs are
-understood. Confirm the version in [pyproject.toml](../pyproject.toml), the
-[changelog](../CHANGELOG.md), intended tag, release notes, and built metadata
-agree. The current metadata version is `0.1.0`; verify the intended version and
-its availability on each target index before publication. Do not assume it has
-already been published. Review dependencies, distribution contents, and changes
-to the [CI workflow](../.github/workflows/ci.yml).
+The PyPI Trusted Publisher and GitHub Environment `pypi` are normally configured
+once and reused. Before each release, confirm that they still match the workflow
+and that their protections remain effective. To recreate the configuration, an
+authorized project owner configures the existing PyPI project's Trusted Publisher:
 
-Run the checks below in an isolated development environment, preferably on both
-Python 3.11 and 3.12. Record actual results; a configured matrix alone does not
-prove a hosted run passed.
+- Project: `jc-github-action-security-auditor`
+- GitHub owner: `jacivaldocarvalho`
+- Repository: `jc-github-action-security-auditor`
+- Workflow filename: `publish.yml`
+- GitHub Environment: `pypi`
+
+For a new project, PyPI offers a pending publisher; the project name must match
+the distribution metadata. PyPI and TestPyPI have separate publisher settings;
+the current workflow targets official PyPI only. See the [PyPI setup guide](https://docs.pypi.org/trusted-publishers/adding-a-publisher/)
+and [pending publisher guide](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/).
+
+Create the `pypi` environment in GitHub before running the workflow. Restrict
+deployments to `main`, require an independent reviewer where available, and
+prevent self-review where supported. Check that the repository's plan and
+visibility support these protections; do not rely on required review if it is
+unavailable. Restrict who can change `main`, the workflow, environment rules,
+and PyPI publisher. GitHub can otherwise create a missing environment without
+protection rules. See [GitHub environment documentation](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments).
+
+## Prepare the version
+
+Update `project.version` in [pyproject.toml](../pyproject.toml), the authoritative
+package metadata, and update [CHANGELOG.md](../CHANGELOG.md) with the intended
+release date and actual changes. Check that the version, release notes, and
+planned `v<version>` tag agree. Confirm on the [official PyPI project page](https://pypi.org/project/jc-github-action-security-auditor/)
+that the target version is not already published; investigate any existing files
+before proceeding. Review dependencies, the working tree, and release inputs.
+
+## Validate before release
+
+In an isolated development environment, preferably on both supported Python
+versions in the [CI matrix](../.github/workflows/ci.yml), run:
 
 ```bash
 python -m pytest --cov=jc_github_action_security_auditor --cov-report=term-missing
@@ -26,99 +52,105 @@ python -m ruff format --check .
 jc-gha-audit scan .
 ```
 
-Investigate findings and errors before release. The auditor is not a complete
-security assessment. See the [contribution guide](../CONTRIBUTING.md) and
-[README](../README.md) for setup and limitations.
+Investigate scan findings and errors; the auditor is not a complete security
+assessment. The publishing workflow's `id-token: write` produces a GHA004 review
+finding and is required for OIDC. See the [README](../README.md) for limitations.
 
-## Build and inspect
-
-Install `build` and `twine` in a temporary tooling environment; they are not
-project runtime dependencies. Build from the reviewed commit using build's
-default isolated backend environment. The temporary directory keeps prior
-artifacts out of this build:
+Install `build` and `twine` in a temporary tooling environment. Build with the
+default isolated backend environment into a fresh temporary directory:
 
 ```bash
 python -m pip install build twine
 release_dist_dir=$(mktemp -d)
 python -m build --outdir "$release_dist_dir"
-python -m twine check "$release_dist_dir"/*
-```
-
-Inspect both archive file lists and their contents, including package metadata,
-entry points, dependencies, README, secrets, generated files, and unintended
-instructions. Confirm all expected package modules are present. For example:
-
-```bash
+python -m twine check --strict "$release_dist_dir"/*
 python -m zipfile -l "$release_dist_dir"/*.whl
 tar -tzf "$release_dist_dir"/*.tar.gz
 ```
 
-Rebuild a wheel from the extracted sdist in a separate directory with build
-isolation, and check the resulting wheel. Review and retain the exact artifacts
-and hashes selected for publication; do not silently substitute later builds.
-Build isolation creates an environment for build dependencies; it does not by
-itself guarantee reproducibility or provenance.
+Inspect wheel and sdist contents and metadata, including name, version, Python
+requirement, license, entry points, dependencies, README rendering, links,
+secrets, and unexpected files. Rebuild a wheel from the extracted sdist in a
+separate isolated build and check it. In clean Python 3.11 and 3.12 environments,
+install each distribution outside the checkout and test CLI help, version,
+a clean scan, and a scan with a known finding. Record results and hashes.
+`twine check --strict` checks the long description but is not a substitute for
+reviewing its rendered appearance and linked assets.
 
-Create separate clean Python 3.11 and 3.12 environments. Install the built
-wheel in each and verify `jc-gha-audit --help`, `jc-gha-audit --version`, a
-clean workflow scan, and a scan producing a known finding. Repeat installation
-from the sdist to verify it can build and install independently. Run these tests
-outside the source checkout so imports come from the installed distribution.
+## Integrate the release commit
 
-## PyPI Trusted Publishing setup
+After the required approval, commit and push the reviewed preparation changes to
+`main`. Require the CI workflow to pass for the exact commit, including its Python
+3.11 and 3.12 jobs. Record that commit SHA, confirm it is the intended source
+revision and the current remote `main`, and check that the intended version and
+artifacts have not appeared on PyPI in the meantime. The publishing workflow
+builds its own artifacts from the dispatched revision; local builds and CI do
+not automatically gate it or guarantee identical bytes.
 
-The prepared [publishing workflow](../.github/workflows/publish.yml) is manually
-triggered only on `main`. Its build job builds and checks the distributions;
-the separate publishing job downloads those artifacts, checks their hashes, and
-uses PyPI Trusted Publishing via OIDC. It does not use a PyPI API token or
-username and password. The hash check detects transfer corruption; it does not
-establish independent trust in a compromised build job.
+## Publish with OIDC
 
-Before the first upload, verify that the project name is available on PyPI and
-create a **pending publisher** there with these exact values:
+After explicit approval for the exact version and destination, manually run
+[Publish to PyPI](../.github/workflows/publish.yml) from GitHub Actions using
+**Run workflow**, selecting `main`, or run `gh workflow run publish.yml --ref main`.
+The workflow is triggered by `workflow_dispatch`; ordinary pushes and pull
+requests do not publish. The build job is restricted to `refs/heads/main`.
+Immediately verify that the run's head SHA is the reviewed release commit; do
+not approve or proceed with a different revision. If environment approval is
+configured, an authorized reviewer inspects the run and its artifacts before
+approving the `pypi` job. The workflow itself does not enforce CI success or
+check a specified expected SHA; protect `main` and coordinate dispatch and review.
 
-- PyPI project name: `jc-github-action-security-auditor`
-- GitHub owner: `jacivaldocarvalho`
-- Repository: `jc-github-action-security-auditor`
-- Workflow filename: `publish.yml`
-- GitHub Environment: `pypi`
+The build job has `contents: read`, builds wheel and sdist in an isolated build,
+runs `twine check --strict`, and uploads them with SHA-256 checksums. The separate
+publishing job downloads the artifacts, verifies the checksums, removes the
+checksum file, and invokes the PyPA publishing action. Its only GitHub token
+permission is `id-token: write`, used for OIDC; it has no checkout step. Use
+Trusted Publishing exclusively, without permanent PyPI tokens or passwords.
 
-If the project already exists, an authorized project owner must configure an
-existing project's Trusted Publisher instead. See the [PyPI pending publisher
-guide](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/).
-PyPI and TestPyPI have separate publisher configurations; this workflow targets
-PyPI only.
+## Verify the publication
 
-In GitHub repository settings, create the `pypi` environment **before running
-the workflow**, require an independent reviewer where available, prevent
-self-review where supported, and restrict deployment branches to `main`. Confirm
-that the repository's plan and visibility support the desired protection rules;
-if required review is unavailable, do not rely on it as a release gate. Restrict
-who can change the workflow, `main`, environment rules, and PyPI publisher. GitHub
-may otherwise create an unprotected environment when a workflow references a
-missing one. See [GitHub deployment environment documentation](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments).
+Check the [PyPI project page](https://pypi.org/project/jc-github-action-security-auditor/)
+for the intended version and both wheel and sdist. In a fresh environment outside
+the checkout, install that exact version from official PyPI and check the CLI:
 
-After the reviewed workflow is committed to `main`, validate the release commit,
-CI, version availability, artifact contents and hashes. Obtain explicit approval
-for the exact PyPI publication before manually dispatching `publish.yml` on
-`main`. The `pypi` environment reviewer must inspect the build run and artifacts
-before approving the publishing job. No ordinary push or pull request publishes.
-Verify the PyPI project page and installation after the approved upload.
+```bash
+python -m venv /tmp/jc-auditor-release-verify
+/tmp/jc-auditor-release-verify/bin/python -m pip install --index-url https://pypi.org/simple 'jc-github-action-security-auditor==<version>'
+/tmp/jc-auditor-release-verify/bin/jc-gha-audit --version
+/tmp/jc-auditor-release-verify/bin/jc-gha-audit --help
+```
 
-Follow the [PyPI Trusted Publishing guide](https://docs.pypi.org/trusted-publishers/using-a-publisher/)
-and [GitHub security guidance](https://docs.github.com/en/actions/reference/security/secure-use).
-Do not configure long-lived PyPI credentials for this workflow.
+Replace `<version>` with the released version and use a fresh environment path.
+Confirm the reported version, and record the workflow URL, source SHA, artifacts,
+and hashes. Do not rerun a successful publication.
 
-## Tag, release notes, and recovery
+## Tag and create the GitHub Release
 
-After explicit approval, create the intended Git tag for the reviewed commit
-and prepare release notes from the changelog. Record the tag, artifact hashes,
-validation results, and publication outcome. Create a GitHub release only when
-its scope is approved; do not claim a release was published before verification.
+After separate explicit approval and successful PyPI verification, check for an
+existing local and remote `v<version>` tag and GitHub Release. Stop on a conflict;
+never move or overwrite a tag. Create an annotated tag at the exact published
+source commit, verify its target, and push only that tag. Publish the matching
+GitHub Release with accurate notes based on the changelog, and verify its status
+and tag target. Do not assert that unpublished features are present.
 
-If an artifact is faulty, stop further promotion, communicate the issue through
-the project's established channels, and assess whether to yank the affected
-release and publish a corrected version. Package index uploads are not generally
-reversible replacements: do not assume an uploaded filename or version can be
-reused. Review the index's current recovery rules and obtain explicit approval
-before yanking, deleting, or publishing a correction.
+## Failure handling and security limits
+
+If OIDC authentication or upload fails, stop and inspect the workflow logs and
+PyPI Trusted Publisher configuration. Do not fall back to long-lived tokens or
+password authentication. Check the official PyPI version page and its files for
+partial publication before considering a retry; resolve the cause and obtain
+specific approval. Never retry blindly. PyPI does not permit replacing an
+uploaded distribution file, even after deletion; a partial or incorrect release
+may require a new version. Assess yanking or a corrected release separately and
+obtain explicit approval before taking those actions.
+
+All external actions in the current workflows are pinned to full commit SHAs;
+verify upstream ownership and review pins when updating them. Permissions are
+limited per job, and the publishing job is separated from the build. The checksum
+check detects transfer corruption, but a compromised build can alter both files
+and checksums. Build tools and backend dependencies are installed from package
+indexes without pinned versions, so dependency compromise and non-reproducible
+builds remain risks. Review the build run, dependencies, artifacts and hashes;
+build isolation alone does not establish provenance or guarantee reproducibility.
+See [PyPI Trusted Publishing](https://docs.pypi.org/trusted-publishers/using-a-publisher/)
+and [GitHub's secure use guidance](https://docs.github.com/en/actions/reference/security/secure-use).
