@@ -1,7 +1,7 @@
 # Release Preparation and Publication
 
-This guide describes a future release process. It does not indicate that a
-release, tag, publishing workflow, or Trusted Publisher already exists. Obtain
+This guide describes a future release process and a prepared publishing workflow.
+It does not indicate that a release, tag, or Trusted Publisher already exists. Obtain
 explicit, operation-specific approval before publishing to TestPyPI or PyPI,
 creating a tag or release, or changing publishing infrastructure or credentials.
 
@@ -65,37 +65,49 @@ clean workflow scan, and a scan producing a known finding. Repeat installation
 from the sdist to verify it can build and install independently. Run these tests
 outside the source checkout so imports come from the installed distribution.
 
-## TestPyPI and PyPI publication
+## PyPI Trusted Publishing setup
 
-TestPyPI and PyPI are separate services with separate project and publisher
-configuration. After explicit approval for the destination and scope:
+The prepared [publishing workflow](../.github/workflows/publish.yml) is manually
+triggered only on `main`. Its build job builds and checks the distributions;
+the separate publishing job downloads those artifacts, checks their hashes, and
+uses PyPI Trusted Publishing via OIDC. It does not use a PyPI API token or
+username and password. The hash check detects transfer corruption; it does not
+establish independent trust in a compromised build job.
 
-1. Configure a Trusted Publisher for the exact repository, publishing workflow,
-   and protected environment on the target index. For a new project, use a
-   pending publisher where appropriate. This repository has no publishing
-   workflow configured by this guide.
-2. Prefer PyPI Trusted Publishing with OIDC and the PyPA publishing action;
-   avoid storing long-lived PyPI API tokens. Review and pin any action used in
-   a future workflow to a full commit SHA. Protect the publishing environment
-   with required reviewers and limit who can change the workflow and publisher.
-3. Give only the publishing job `id-token: write`, required for OIDC. Grant
-   other permissions only as needed; keep build and test jobs read-only. This
-   permission allows requesting an OIDC token and is distinct from repository
-   content write access.
-4. First publish the reviewed artifacts to TestPyPI using its configured
-   Trusted Publisher and TestPyPI repository URL. Verify the uploaded version,
-   metadata, and installation in a clean environment. TestPyPI is separate
-   from PyPI and may not contain all runtime dependencies; install trusted
-   dependencies separately rather than relying on a mixed-index resolution.
-5. After separate explicit approval for PyPI, publish the same reviewed
-   artifacts using the PyPI Trusted Publisher, then verify the project page and
-   installation in a clean environment.
+Before the first upload, verify that the project name is available on PyPI and
+create a **pending publisher** there with these exact values:
+
+- PyPI project name: `jc-github-action-security-auditor`
+- GitHub owner: `jacivaldocarvalho`
+- Repository: `jc-github-action-security-auditor`
+- Workflow filename: `publish.yml`
+- GitHub Environment: `pypi`
+
+If the project already exists, an authorized project owner must configure an
+existing project's Trusted Publisher instead. See the [PyPI pending publisher
+guide](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/).
+PyPI and TestPyPI have separate publisher configurations; this workflow targets
+PyPI only.
+
+In GitHub repository settings, create the `pypi` environment **before running
+the workflow**, require an independent reviewer where available, prevent
+self-review where supported, and restrict deployment branches to `main`. Confirm
+that the repository's plan and visibility support the desired protection rules;
+if required review is unavailable, do not rely on it as a release gate. Restrict
+who can change the workflow, `main`, environment rules, and PyPI publisher. GitHub
+may otherwise create an unprotected environment when a workflow references a
+missing one. See [GitHub deployment environment documentation](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments).
+
+After the reviewed workflow is committed to `main`, validate the release commit,
+CI, version availability, artifact contents and hashes. Obtain explicit approval
+for the exact PyPI publication before manually dispatching `publish.yml` on
+`main`. The `pypi` environment reviewer must inspect the build run and artifacts
+before approving the publishing job. No ordinary push or pull request publishes.
+Verify the PyPI project page and installation after the approved upload.
 
 Follow the [PyPI Trusted Publishing guide](https://docs.pypi.org/trusted-publishers/using-a-publisher/)
-and [TestPyPI guide](https://packaging.python.org/en/latest/guides/using-testpypi/)
-for current service-specific setup. A manually authenticated upload is a
-separate fallback requiring an approved credential and operation; never commit
-credentials or place them in command history.
+and [GitHub security guidance](https://docs.github.com/en/actions/reference/security/secure-use).
+Do not configure long-lived PyPI credentials for this workflow.
 
 ## Tag, release notes, and recovery
 

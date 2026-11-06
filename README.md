@@ -3,7 +3,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![CI](https://github.com/jacivaldocarvalho/jc-github-action-security-auditor/actions/workflows/ci.yml/badge.svg)](https://github.com/jacivaldocarvalho/jc-github-action-security-auditor/actions/workflows/ci.yml)
 [![Code style: Ruff](https://img.shields.io/badge/code%20style-Ruff-261230)](https://docs.astral.sh/ruff/)
-[![License](https://img.shields.io/github/license/jacivaldocarvalho/jc-github-action-security-auditor)](LICENSE)
+[![License](https://img.shields.io/github/license/jacivaldocarvalho/jc-github-action-security-auditor)](https://github.com/jacivaldocarvalho/jc-github-action-security-auditor/blob/2f984f95cb34c657cfd3dfd3ecc41174a2cbc7a4/LICENSE)
 
 ## Overview
 
@@ -67,7 +67,7 @@ errors produce exit status 1 in every format.
 
 ## Example: Detecting Insecure Workflows
 
-![Terminal demonstration of the auditor detecting three workflow security findings](docs/assets/security-demo.gif)
+![Terminal demonstration of the auditor detecting three workflow security findings](https://raw.githubusercontent.com/jacivaldocarvalho/jc-github-action-security-auditor/2f984f95cb34c657cfd3dfd3ecc41174a2cbc7a4/docs/assets/security-demo.gif)
 
 This workflow is **intentionally insecure and for demonstration only**. Create it
 in a temporary directory, then scan that directory:
@@ -219,13 +219,13 @@ The following are proposed future improvements and are not implemented:
 
 ## Documentation
 
-See the [documentation index](docs/index.md) for architecture decisions and
-diagrams, the [contribution guide](CONTRIBUTING.md) for development practices,
-and the [changelog](CHANGELOG.md) for project history.
+See the [documentation index](https://github.com/jacivaldocarvalho/jc-github-action-security-auditor/blob/2f984f95cb34c657cfd3dfd3ecc41174a2cbc7a4/docs/index.md) for architecture decisions and
+diagrams, the [contribution guide](https://github.com/jacivaldocarvalho/jc-github-action-security-auditor/blob/2f984f95cb34c657cfd3dfd3ecc41174a2cbc7a4/CONTRIBUTING.md) for development practices,
+and the [changelog](https://github.com/jacivaldocarvalho/jc-github-action-security-auditor/blob/2f984f95cb34c657cfd3dfd3ecc41174a2cbc7a4/CHANGELOG.md) for project history.
 
 ## License
 
-Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
+Distributed under the MIT License. See [LICENSE](https://github.com/jacivaldocarvalho/jc-github-action-security-auditor/blob/2f984f95cb34c657cfd3dfd3ecc41174a2cbc7a4/LICENSE) for more information.
 
 ## Author
 
